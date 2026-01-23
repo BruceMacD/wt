@@ -173,6 +173,17 @@ pub fn create_worktree(branch_name: &str) -> Result<PathBuf> {
         return Err(WtError::GitCommand(stderr.to_string()));
     }
 
+    // Checkout the branch in the new worktree
+    let checkout_output = Command::new("git")
+        .args(["checkout", branch_name])
+        .current_dir(&worktree_path)
+        .output()?;
+
+    if !checkout_output.status.success() {
+        let stderr = String::from_utf8_lossy(&checkout_output.stderr);
+        return Err(WtError::GitCommand(stderr.to_string()));
+    }
+
     Ok(worktree_path)
 }
 
