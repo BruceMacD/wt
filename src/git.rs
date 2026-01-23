@@ -124,8 +124,21 @@ pub fn branch_exists(branch: &str) -> Result<bool> {
 pub fn create_worktree(branch_name: &str) -> Result<PathBuf> {
     let base_path = get_worktree_base_path()?;
 
+    // Check if branch exists (without prefix)
+    let existing_branch = branch_exists(branch_name)?;
+
+    // Apply prefix for new branches
+    let final_branch_name = if existing_branch {
+        branch_name.to_string()
+    } else {
+        match get_prefix()? {
+            Some(prefix) => format!("{}{}", prefix, branch_name),
+            None => branch_name.to_string(),
+        }
+    };
+
     // Sanitize branch name for directory (replace / with -)
-    let dir_name = branch_name.replace('/', "-");
+    let dir_name = final_branch_name.replace('/', "-");
     let worktree_path = base_path.join(&dir_name);
 
     // Check if worktree already exists at this path
@@ -147,13 +160,10 @@ pub fn create_worktree(branch_name: &str) -> Result<PathBuf> {
         std::fs::create_dir_all(parent)?;
     }
 
-    // Check if branch exists
-    let branch_exists = branch_exists(branch_name)?;
-
-    let output = if branch_exists {
+    let output = if existing_branch {
         // Branch exists, just create worktree
         Command::new("git")
-            .args(["worktree", "add", worktree_path.to_str().unwrap(), branch_name])
+            .args(["worktree", "add", worktree_path.to_str().unwrap(), &final_branch_name])
             .output()?
     } else {
         // Create new branch with worktree
@@ -162,7 +172,7 @@ pub fn create_worktree(branch_name: &str) -> Result<PathBuf> {
                 "worktree",
                 "add",
                 "-b",
-                branch_name,
+                &final_branch_name,
                 worktree_path.to_str().unwrap(),
             ])
             .output()?
@@ -170,17 +180,6 @@ pub fn create_worktree(branch_name: &str) -> Result<PathBuf> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(WtError::GitCommand(stderr.to_string()));
-    }
-
-    // Checkout the branch in the new worktree
-    let checkout_output = Command::new("git")
-        .args(["checkout", branch_name])
-        .current_dir(&worktree_path)
-        .output()?;
-
-    if !checkout_output.status.success() {
-        let stderr = String::from_utf8_lossy(&checkout_output.stderr);
         return Err(WtError::GitCommand(stderr.to_string()));
     }
 
@@ -217,4 +216,40 @@ pub fn find_worktree_by_name(name: &str) -> Result<Option<Worktree>> {
     Ok(worktrees
         .into_iter()
         .find(|wt| wt.branch == name || wt.path.ends_with(name)))
+}
+
+pub fn get_prefix() -> Result<Option<String>> {
+    let output = Command::new("git")
+        .args(["config", "--get", "worktree.prefix"])
+        .output()?;
+
+    if output.status.success() {
+        let prefix = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if prefix.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(prefix))
+        }
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn set_prefix(prefix: &str) -> Result<()> {
+    if prefix.is_empty() {
+        // Clear the prefix
+        let _ = Command::new("git")
+            .args(["config", "--unset", "worktree.prefix"])
+            .output()?;
+    } else {
+        let output = Command::new("git")
+            .args(["config", "worktree.prefix", prefix])
+            .output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(WtError::GitCommand(stderr.to_string()));
+        }
+    }
+    Ok(())
 }

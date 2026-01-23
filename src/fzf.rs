@@ -26,12 +26,6 @@ pub fn run_fzf(worktrees: &[Worktree]) -> Result<FzfResult> {
             "--print-query",
             "--header",
             "Select worktree or type new branch name",
-            "--preview",
-            "echo 'Path: {2}'",
-            "--with-nth",
-            "1",
-            "--delimiter",
-            "\t",
         ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -41,7 +35,7 @@ pub fn run_fzf(worktrees: &[Worktree]) -> Result<FzfResult> {
     // Write worktree list to fzf stdin
     if let Some(mut stdin) = child.stdin.take() {
         for wt in worktrees {
-            let line = format!("{}\t{}\n", wt.branch, wt.path.display());
+            let line = format!("{}\n", wt.branch);
             let _ = stdin.write_all(line.as_bytes());
         }
     }
@@ -62,7 +56,7 @@ pub fn run_fzf(worktrees: &[Worktree]) -> Result<FzfResult> {
             // User selected an existing item
             if lines.len() >= 2 {
                 // Second line is the selection (first is query)
-                let selection = lines[1].split('\t').next().unwrap_or("").to_string();
+                let selection = lines[1].to_string();
                 Ok(FzfResult::Selected(selection))
             } else if !lines.is_empty() {
                 // Just query, treat as new

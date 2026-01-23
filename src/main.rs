@@ -10,7 +10,7 @@ use crate::error::WtError;
 use crate::fzf::FzfResult;
 
 #[derive(Parser)]
-#[command(name = "wt")]
+#[command(name = "worktree")]
 #[command(about = "Git worktree manager with fzf integration")]
 struct Cli {
     #[command(subcommand)]
@@ -21,15 +21,18 @@ struct Cli {
 enum Commands {
     /// Return to the main git repository directory
     Exit,
-    /// List all worktrees
-    List,
     /// Remove a worktree
     Remove {
         /// Name of the worktree/branch to remove
         name: String,
     },
-    /// Install wt binary and configure shell integration
-    Init,
+    /// Set or show branch name prefix
+    Prefix {
+        /// Prefix to add to new branch names (omit to show current, use "" to clear)
+        value: Option<String>,
+    },
+    /// Print the shell alias for wt
+    Alias,
 }
 
 fn main() -> ExitCode {
@@ -38,9 +41,9 @@ fn main() -> ExitCode {
     let result = match cli.command {
         None => run_default(),
         Some(Commands::Exit) => run_exit(),
-        Some(Commands::List) => run_list(),
         Some(Commands::Remove { name }) => run_remove(&name),
-        Some(Commands::Init) => run_init(),
+        Some(Commands::Prefix { value }) => run_prefix(value),
+        Some(Commands::Alias) => run_alias(),
     };
 
     match result {
@@ -87,23 +90,33 @@ fn run_exit() -> Result<(), WtError> {
     Ok(())
 }
 
-fn run_list() -> Result<(), WtError> {
-    let worktrees = git::list_worktrees()?;
-
-    for wt in worktrees {
-        let marker = if wt.is_main { "*" } else { " " };
-        println!("{} {} ({})", marker, wt.branch, wt.path.display());
-    }
-
-    Ok(())
-}
-
 fn run_remove(name: &str) -> Result<(), WtError> {
     git::remove_worktree(name)?;
     eprintln!("Removed worktree: {}", name);
     Ok(())
 }
 
-fn run_init() -> Result<(), WtError> {
-    shell::install()
+fn run_prefix(value: Option<String>) -> Result<(), WtError> {
+    match value {
+        Some(v) => {
+            git::set_prefix(&v)?;
+            if v.is_empty() {
+                eprintln!("Cleared prefix");
+            } else {
+                eprintln!("Set prefix: {}", v);
+            }
+        }
+        None => {
+            if let Some(prefix) = git::get_prefix()? {
+                println!("{}", prefix);
+            } else {
+                eprintln!("No prefix set");
+            }
+        }
+    }
+    Ok(())
+}
+
+fn run_alias() -> Result<(), WtError> {
+    shell::print_alias()
 }
