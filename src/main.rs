@@ -22,9 +22,10 @@ enum Commands {
     /// Return to the main git repository directory
     Exit,
     /// Remove a worktree
+    #[command(visible_alias = "rm")]
     Remove {
-        /// Name of the worktree/branch to remove
-        name: String,
+        /// Name of the worktree/branch to remove (defaults to last switched-from worktree)
+        name: Option<String>,
     },
     /// Set or show branch name prefix
     Prefix {
@@ -41,7 +42,7 @@ fn main() -> ExitCode {
     let result = match cli.command {
         None => run_default(),
         Some(Commands::Exit) => run_exit(),
-        Some(Commands::Remove { name }) => run_remove(&name),
+        Some(Commands::Remove { name }) => run_remove(name),
         Some(Commands::Prefix { value }) => run_prefix(value),
         Some(Commands::Alias) => run_alias(),
     };
@@ -59,18 +60,33 @@ fn run_default() -> Result<(), WtError> {
     // Ensure we're in a git repo
     git::find_git_root()?;
 
+    // Get current worktree before switching
+    let current = git::get_current_worktree()?;
+
     // Get all worktrees
     let worktrees = git::list_worktrees()?;
 
     // Run fzf
     match fzf::run_fzf(&worktrees)? {
         FzfResult::Selected(branch) => {
+            // Save current worktree as "last" before switching (skip main)
+            if let Some(ref cur) = current {
+                if !cur.is_main {
+                    let _ = git::save_last_worktree(&cur.branch);
+                }
+            }
             // Find and switch to selected worktree
             if let Some(wt) = git::find_worktree_by_name(&branch)? {
                 println!("{}", wt.path.display());
             }
         }
         FzfResult::New(branch_name) => {
+            // Save current worktree as "last" before switching (skip main)
+            if let Some(ref cur) = current {
+                if !cur.is_main {
+                    let _ = git::save_last_worktree(&cur.branch);
+                }
+            }
             // Create new worktree with this branch name
             eprintln!("Creating worktree for branch: {}", branch_name);
             let path = git::create_worktree(&branch_name)?;
@@ -85,14 +101,37 @@ fn run_default() -> Result<(), WtError> {
 }
 
 fn run_exit() -> Result<(), WtError> {
+    // Save current worktree as "last" before going back to main
+    if let Some(cur) = git::get_current_worktree()? {
+        if !cur.is_main {
+            let _ = git::save_last_worktree(&cur.branch);
+        }
+    }
     let main_worktree = git::get_main_worktree()?;
     println!("{}", main_worktree.display());
     Ok(())
 }
 
-fn run_remove(name: &str) -> Result<(), WtError> {
-    git::remove_worktree(name)?;
-    eprintln!("Removed worktree: {}", name);
+fn run_remove(name: Option<String>) -> Result<(), WtError> {
+    let target = match name {
+        Some(n) => n,
+        None => git::get_last_worktree()?
+            .ok_or_else(|| WtError::GitCommand("no previous worktree to remove".to_string()))?,
+    };
+
+    // Don't allow removing the worktree you're currently in
+    if let Some(cur) = git::get_current_worktree()? {
+        if !cur.is_main && cur.branch == target {
+            return Err(WtError::GitCommand(
+                "cannot remove the current worktree, run `wt exit` first".to_string(),
+            ));
+        }
+    }
+
+    let removed = git::remove_worktree(&target)?;
+    for branch in &removed {
+        eprintln!("Removed worktree: {}", branch);
+    }
     Ok(())
 }
 

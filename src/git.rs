@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 use std::process::Command;
+use std::env;
+use std::fs;
 
 use crate::error::{Result, WtError};
 
@@ -24,7 +26,7 @@ pub fn find_git_root() -> Result<PathBuf> {
 }
 
 pub fn get_repo_name() -> Result<String> {
-    let root = find_git_root()?;
+    let root = get_main_worktree()?;
     let name = root
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
@@ -186,29 +188,52 @@ pub fn create_worktree(branch_name: &str) -> Result<PathBuf> {
     Ok(worktree_path)
 }
 
-pub fn remove_worktree(name: &str) -> Result<()> {
+pub fn remove_worktree(name: &str) -> Result<Vec<String>> {
     let worktrees = list_worktrees()?;
+    let prefix = get_prefix()?;
 
-    // Find matching worktree
-    let worktree = worktrees
+    // Build list of names to match: input and prefix+input
+    let mut names_to_match = vec![name.to_string()];
+    if let Some(ref p) = prefix {
+        let prefixed_name = format!("{}{}", p, name);
+        if prefixed_name != name {
+            names_to_match.push(prefixed_name);
+        }
+    }
+
+    // Find all matching worktrees
+    let matching: Vec<_> = worktrees
         .iter()
-        .find(|wt| wt.branch == name || wt.path.ends_with(name))
-        .ok_or_else(|| WtError::WorktreeNotFound(name.to_string()))?;
+        .filter(|wt| {
+            names_to_match.iter().any(|n| wt.branch == *n || wt.path.ends_with(n))
+        })
+        .collect();
 
-    if worktree.is_main {
-        return Err(WtError::GitCommand("cannot remove main worktree".to_string()));
+    if matching.is_empty() {
+        return Err(WtError::WorktreeNotFound(name.to_string()));
     }
 
-    let output = Command::new("git")
-        .args(["worktree", "remove", worktree.path.to_str().unwrap()])
-        .output()?;
+    let mut removed = Vec::new();
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(WtError::GitCommand(stderr.to_string()));
+    // Remove all matching worktrees
+    for worktree in matching {
+        if worktree.is_main {
+            return Err(WtError::GitCommand("cannot remove main worktree".to_string()));
+        }
+
+        let output = Command::new("git")
+            .args(["worktree", "remove", worktree.path.to_str().unwrap()])
+            .output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(WtError::GitCommand(stderr.to_string()));
+        }
+
+        removed.push(worktree.branch.clone());
     }
 
-    Ok(())
+    Ok(removed)
 }
 
 pub fn find_worktree_by_name(name: &str) -> Result<Option<Worktree>> {
@@ -252,4 +277,47 @@ pub fn set_prefix(prefix: &str) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn get_last_worktree_file() -> Result<PathBuf> {
+    let home = dirs::home_dir().ok_or_else(|| {
+        WtError::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "home directory not found",
+        ))
+    })?;
+    let repo_name = get_repo_name()?;
+    Ok(home.join(".wt").join(repo_name).join(".last"))
+}
+
+pub fn get_current_worktree() -> Result<Option<Worktree>> {
+    let cwd = env::current_dir()?;
+    let worktrees = list_worktrees()?;
+
+    // Find which worktree contains the current directory
+    Ok(worktrees.into_iter().find(|wt| cwd.starts_with(&wt.path)))
+}
+
+pub fn save_last_worktree(branch: &str) -> Result<()> {
+    let file = get_last_worktree_file()?;
+    if let Some(parent) = file.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(file, branch)?;
+    Ok(())
+}
+
+pub fn get_last_worktree() -> Result<Option<String>> {
+    let file = get_last_worktree_file()?;
+    if file.exists() {
+        let content = fs::read_to_string(file)?;
+        let branch = content.trim().to_string();
+        if branch.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(branch))
+        }
+    } else {
+        Ok(None)
+    }
 }
