@@ -34,6 +34,9 @@ enum Commands {
     },
     /// Print the shell alias for wt
     Alias,
+    /// Create or switch to a worktree (default when name given)
+    #[command(external_subcommand)]
+    External(Vec<String>),
 }
 
 fn main() -> ExitCode {
@@ -45,6 +48,14 @@ fn main() -> ExitCode {
         Some(Commands::Remove { name }) => run_remove(name),
         Some(Commands::Prefix { value }) => run_prefix(value),
         Some(Commands::Alias) => run_alias(),
+        Some(Commands::External(args)) => {
+            if args.len() == 1 {
+                run_create_or_switch(&args[0])
+            } else {
+                eprintln!("error: unexpected arguments");
+                return ExitCode::FAILURE;
+            }
+        }
     };
 
     match result {
@@ -54,6 +65,22 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+fn run_create_or_switch(name: &str) -> Result<(), WtError> {
+    git::find_git_root()?;
+
+    // Check if worktree already exists
+    if let Some(wt) = git::find_worktree_by_name(name)? {
+        println!("{}", wt.path.display());
+    } else {
+        // Create new worktree
+        eprintln!("Creating worktree for branch: {}", name);
+        let path = git::create_worktree(name)?;
+        println!("{}", path.display());
+    }
+
+    Ok(())
 }
 
 fn run_default() -> Result<(), WtError> {
