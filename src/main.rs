@@ -34,9 +34,11 @@ enum Commands {
     },
     /// Print the shell alias for wt
     Alias,
-    /// Create or switch to a worktree (default when name given)
-    #[command(external_subcommand)]
-    External(Vec<String>),
+    /// Create or switch to a worktree
+    New {
+        /// Name of the worktree/branch to create or switch to
+        name: String,
+    },
 }
 
 fn main() -> ExitCode {
@@ -48,14 +50,7 @@ fn main() -> ExitCode {
         Some(Commands::Remove { name }) => run_remove(name),
         Some(Commands::Prefix { value }) => run_prefix(value),
         Some(Commands::Alias) => run_alias(),
-        Some(Commands::External(args)) => {
-            if args.len() == 1 {
-                run_create_or_switch(&args[0])
-            } else {
-                eprintln!("error: unexpected arguments");
-                return ExitCode::FAILURE;
-            }
-        }
+        Some(Commands::New { name }) => run_create_or_switch(&name),
     };
 
     match result {
