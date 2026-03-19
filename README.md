@@ -1,6 +1,14 @@
-# worktree
+```
+           __
+ _      __/ /_
+| | /| / / __/
+| |/ |/ / /_
+|__/|__/\__/
+```
 
-Git worktree manager with fzf integration.
+# wt - Git Worktree Manager
+
+A fast, interactive Git worktree manager powered by [fzf](https://github.com/junegunn/fzf). Create, switch, and clean up worktrees without remembering any `git worktree` commands.
 
 ## Install
 
@@ -18,45 +26,41 @@ wt() { cd "$(worktree "$@")"; }
 ### Building from source
 
 ```bash
-git clone https://github.com/yourusername/worktree.git
-cd worktree
+git clone https://github.com/brucemacd/wt.git
+cd wt
 cargo build --release
 cp target/release/worktree ~/.local/bin/
 ```
 
-## Usage
+## Commands
 
-```bash
-wt                    # Open fzf picker - select existing or type new branch name
-wt exit               # Return to main repo directory
-wt remove NAME        # Delete a worktree
-wt prefix "feature/"  # Set prefix for new branches
-wt prefix             # Show current prefix
-wt prefix ""          # Clear prefix
-```
+| Command | Description |
+|---|---|
+| `wt` | Open interactive picker — select an existing worktree or type a new branch name |
+| `wt exit` | Return to the main repo directory |
+| `wt remove <name>` | Delete a worktree (alias: `wt rm`) |
+| `wt prefix "feature/"` | Set a prefix applied to all new branch names |
+| `wt prefix` | Show the current prefix |
+| `wt prefix ""` | Clear the prefix |
 
 ## How it works
 
-1. Run `wt` in any git repo
-2. fzf opens with existing worktrees
+1. Run `wt` inside any Git repo
+2. An fzf picker shows your existing worktrees
 3. Select one to switch, or type a new branch name and press Enter
 4. New worktrees are created at `~/.wt/<repo>/<branch>/`
 
-## Requirements
-
-- [fzf](https://github.com/junegunn/fzf) - `brew install fzf`
-
-## PR Workflow
+## Example workflow
 
 ```bash
-# Start feature
-wt                      # type: feature-xyz, press Enter
-# ... work ...
+# Start a feature
+wt                        # type "feature-xyz", press Enter
+# ... write code ...
 git push -u origin feature-xyz
 gh pr create
 
-# Switch contexts
-wt                      # pick another worktree
+# Switch context
+wt                        # pick another worktree
 
 # Cleanup after merge
 wt exit
