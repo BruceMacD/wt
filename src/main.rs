@@ -11,6 +11,7 @@ use crate::fzf::FzfResult;
 
 #[derive(Parser)]
 #[command(name = "worktree")]
+#[command(before_help = "          _                                _    _                 \n__      _| |_          __      _____  _ __| | _| |_ _ __ ___  ___ \n\\ \\ /\\ / / __|  _____  \\ \\ /\\ / / _ \\| '__| |/ / __| '__/ _ \\/ _ \\\n \\ V  V /| |_  |_____|  \\ V  V / (_) | |  |   <| |_| | |  __/  __/\n  \\_/\\_/  \\__|           \\_/\\_/ \\___/|_|  |_|\\_\\\\__|_|  \\___|\\___|")]
 #[command(about = "Git worktree manager with fzf integration")]
 struct Cli {
     #[command(subcommand)]

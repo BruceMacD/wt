@@ -1,14 +1,6 @@
-```
-           __
- _      __/ /_
-| | /| / / __/
-| |/ |/ / /_
-|__/|__/\__/
-```
-
 # wt - Git Worktree Manager
 
-A fast, interactive Git worktree manager powered by [fzf](https://github.com/junegunn/fzf). Create, switch, and clean up worktrees without remembering any `git worktree` commands.
+An interactive Git worktree manager powered by [fzf](https://github.com/junegunn/fzf). Create, switch, and clean up worktrees without remembering any `git worktree` commands.
 
 ## Install
 
@@ -67,3 +59,18 @@ wt                        # pick another worktree
 wt exit
 wt remove feature-xyz
 ```
+
+## Development
+
+```bash
+# Build and install locally
+cargo install --path .
+
+# Build without installing (binary at target/debug/worktree)
+cargo build
+
+# Run directly without installing
+cargo run -- [command]
+```
+
+After rebuilding, run `cargo install --path .` to update the installed binary.
