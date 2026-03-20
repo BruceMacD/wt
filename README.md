@@ -1,6 +1,10 @@
 # wt - Git Worktree Manager
-
+  
 An interactive Git worktree manager powered by [fzf](https://github.com/junegunn/fzf). Create, switch, and clean up worktrees without remembering any `git worktree` commands.
+
+<div align="center">
+    <img src="https://github.com/user-attachments/assets/7103daaf-8a9a-4c9e-b961-4f7f99d9636e" width="600" />
+</div>
 
 ## Install
 
