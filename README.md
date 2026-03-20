@@ -9,7 +9,7 @@ An interactive Git worktree manager powered by [fzf](https://github.com/junegunn
 ## Install
 
 ```bash
-cargo install --path .
+cargo install fzf-worktree
 worktree alias
 ```
 
