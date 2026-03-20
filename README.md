@@ -37,6 +37,7 @@ cp target/release/worktree ~/.local/bin/
 | Command | Description |
 |---|---|
 | `wt` | Open interactive picker — select an existing worktree or type a new branch name |
+| `wt new <name>` | Create or switch to a worktree by name |
 | `wt exit` | Return to the main repo directory |
 | `wt remove <name>` | Delete a worktree (alias: `wt rm`) |
 | `wt prefix "feature/"` | Set a prefix applied to all new branch names |
