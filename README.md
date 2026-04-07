@@ -22,6 +22,7 @@ wt() { cd "$(worktree "$@")"; }
 ### Building from source
 
 ```bash
+brew install fzf
 git clone https://github.com/brucemacd/wt.git
 cd wt
 cargo build --release
