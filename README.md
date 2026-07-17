@@ -16,7 +16,23 @@ worktree alias
 Add the printed alias to your shell config (`~/.bashrc`, `~/.zshrc`, etc.):
 
 ```bash
-wt() { cd "$(worktree "$@")"; }
+wt() {
+    case "$1" in
+        list|remove|rm|prefix|alias|help|-h|--help)
+            worktree "$@"
+            ;;
+        *)
+            case "$2" in
+                -h|--help) worktree "$@" ;;
+                *)
+                    local dir
+                    dir="$(worktree "$@")" || return
+                    [ -z "$dir" ] || cd "$dir"
+                    ;;
+            esac
+            ;;
+    esac
+}
 ```
 
 ### Building from source
@@ -35,6 +51,7 @@ cp target/release/worktree ~/.local/bin/
 | `wt` | Open interactive picker — select an existing worktree or type a new branch name |
 | `wt new <name>` | Create or switch to a worktree by name |
 | `wt exit` | Return to the main repo directory |
+| `wt list` | List branches and paths for the current project's worktrees |
 | `wt remove <name>` | Delete a worktree (alias: `wt rm`) |
 | `wt prefix "feature/"` | Set a prefix applied to all new branch names |
 | `wt prefix` | Show the current prefix |

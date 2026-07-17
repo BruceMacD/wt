@@ -14,8 +14,36 @@ pub fn print_alias() -> Result<()> {
     })?;
 
     let alias = match shell.as_str() {
-        "fish" => r#"function wt; cd (worktree $argv); end"#,
-        _ => r#"wt() { cd "$(worktree "$@")"; }"#,
+        "fish" => r#"function wt
+    if test (count $argv) -gt 0; and contains -- $argv[1] list remove rm prefix alias help -h --help
+        worktree $argv
+        return
+    end
+    if test (count $argv) -gt 1; and contains -- $argv[2] -h --help
+        worktree $argv
+        return
+    end
+    set -l dir (worktree $argv)
+    or return
+    test -z "$dir"; or cd "$dir"
+end"#,
+        _ => r#"wt() {
+    case "$1" in
+        list|remove|rm|prefix|alias|help|-h|--help)
+            worktree "$@"
+            ;;
+        *)
+            case "$2" in
+                -h|--help) worktree "$@" ;;
+                *)
+                    local dir
+                    dir="$(worktree "$@")" || return
+                    [ -z "$dir" ] || cd "$dir"
+                    ;;
+            esac
+            ;;
+    esac
+}"#,
     };
 
     println!("{}", alias);

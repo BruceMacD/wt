@@ -22,6 +22,8 @@ struct Cli {
 enum Commands {
     /// Return to the main git repository directory
     Exit,
+    /// List worktrees for the current project
+    List,
     /// Remove a worktree
     #[command(visible_alias = "rm")]
     Remove {
@@ -48,6 +50,7 @@ fn main() -> ExitCode {
     let result = match cli.command {
         None => run_default(),
         Some(Commands::Exit) => run_exit(),
+        Some(Commands::List) => run_list(),
         Some(Commands::Remove { name }) => run_remove(name),
         Some(Commands::Prefix { value }) => run_prefix(value),
         Some(Commands::Alias) => run_alias(),
@@ -132,6 +135,13 @@ fn run_exit() -> Result<(), WtError> {
     }
     let main_worktree = git::get_main_worktree()?;
     println!("{}", main_worktree.display());
+    Ok(())
+}
+
+fn run_list() -> Result<(), WtError> {
+    for worktree in git::list_worktrees()? {
+        println!("{}\t{}", worktree.branch, worktree.path.display());
+    }
     Ok(())
 }
 
