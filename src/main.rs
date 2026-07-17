@@ -38,6 +38,11 @@ enum Commands {
     /// Print the shell alias for wt
     Alias,
     /// Create or switch to a worktree
+    Add {
+        /// Name of the worktree/branch to create or switch to
+        name: String,
+    },
+    /// Create or switch to a worktree
     New {
         /// Name of the worktree/branch to create or switch to
         name: String,
@@ -54,6 +59,7 @@ fn main() -> ExitCode {
         Some(Commands::Remove { name }) => run_remove(name),
         Some(Commands::Prefix { value }) => run_prefix(value),
         Some(Commands::Alias) => run_alias(),
+        Some(Commands::Add { name }) => run_create_or_switch(&name),
         Some(Commands::New { name }) => run_create_or_switch(&name),
     };
 

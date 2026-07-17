@@ -49,6 +49,7 @@ cp target/release/worktree ~/.local/bin/
 | Command | Description |
 |---|---|
 | `wt` | Open interactive picker — select an existing worktree or type a new branch name |
+| `wt add <name>` | Create or switch to a worktree by name without opening the picker |
 | `wt new <name>` | Create or switch to a worktree by name |
 | `wt exit` | Return to the main repo directory |
 | `wt list` | List branches and paths for the current project's worktrees |
