@@ -21,6 +21,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Return to the main git repository directory
+    #[command(visible_alias = "x")]
     Exit,
     /// List worktrees for the current project
     List,
