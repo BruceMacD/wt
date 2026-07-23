@@ -10,6 +10,60 @@ pub struct Worktree {
     pub path: PathBuf,
     pub branch: String,
     pub is_main: bool,
+    hint: Option<String>,
+}
+
+impl Worktree {
+    pub fn display_name(&self) -> String {
+        if self.branch == "(detached)" {
+            if let Some(name) = codex_worktree_name(&self.path) {
+                return name;
+            }
+        }
+
+        self.branch.clone()
+    }
+
+    pub fn display_label(&self) -> String {
+        match &self.hint {
+            Some(hint) => format!("{}\t{}", self.display_name(), hint),
+            None => self.display_name(),
+        }
+    }
+
+    pub fn is_codex_managed(&self) -> bool {
+        self.branch == "(detached)" && codex_worktree_name(&self.path).is_some()
+    }
+
+    pub fn set_hint(&mut self, hint: String) {
+        self.hint = Some(hint);
+    }
+
+    pub fn matches_name(&self, name: &str) -> bool {
+        let name = name
+            .split_once('\t')
+            .map(|(display_name, _)| display_name)
+            .unwrap_or(name);
+        self.branch == name || self.display_name() == name || self.path.ends_with(name)
+    }
+}
+
+fn codex_worktree_name(path: &std::path::Path) -> Option<String> {
+    let components: Vec<_> = path
+        .components()
+        .filter_map(|component| match component {
+            std::path::Component::Normal(value) => Some(value),
+            _ => None,
+        })
+        .collect();
+
+    components.windows(3).find_map(|window| {
+        if window[0] == ".codex" && window[1] == "worktrees" {
+            Some(format!("codex/{}", window[2].to_string_lossy()))
+        } else {
+            None
+        }
+    })
 }
 
 pub fn find_git_root() -> Result<PathBuf> {
@@ -64,6 +118,12 @@ pub fn list_worktrees() -> Result<Vec<Worktree>> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut worktrees = parse_worktrees(&stdout);
+    crate::codex::attach_worktree_hints(&mut worktrees);
+    Ok(worktrees)
+}
+
+fn parse_worktrees(stdout: &str) -> Vec<Worktree> {
     let mut worktrees = Vec::new();
     let mut current_path: Option<PathBuf> = None;
     let mut current_branch: Option<String> = None;
@@ -76,6 +136,7 @@ pub fn list_worktrees() -> Result<Vec<Worktree>> {
                     path,
                     branch,
                     is_main: worktrees.is_empty(),
+                    hint: None,
                 });
             }
             current_path = Some(PathBuf::from(path));
@@ -98,10 +159,11 @@ pub fn list_worktrees() -> Result<Vec<Worktree>> {
             path,
             branch,
             is_main: worktrees.is_empty(),
+            hint: None,
         });
     }
 
-    Ok(worktrees)
+    worktrees
 }
 
 pub fn get_worktree_base_path() -> Result<PathBuf> {
@@ -204,9 +266,7 @@ pub fn remove_worktree(name: &str) -> Result<Vec<String>> {
     // Find all matching worktrees
     let matching: Vec<_> = worktrees
         .iter()
-        .filter(|wt| {
-            names_to_match.iter().any(|n| wt.branch == *n || wt.path.ends_with(n))
-        })
+        .filter(|wt| names_to_match.iter().any(|name| wt.matches_name(name)))
         .collect();
 
     if matching.is_empty() {
@@ -230,7 +290,7 @@ pub fn remove_worktree(name: &str) -> Result<Vec<String>> {
             return Err(WtError::GitCommand(stderr.to_string()));
         }
 
-        removed.push(worktree.branch.clone());
+        removed.push(worktree.display_name());
     }
 
     Ok(removed)
@@ -240,7 +300,7 @@ pub fn find_worktree_by_name(name: &str) -> Result<Option<Worktree>> {
     let worktrees = list_worktrees()?;
     Ok(worktrees
         .into_iter()
-        .find(|wt| wt.branch == name || wt.path.ends_with(name)))
+        .find(|wt| wt.matches_name(name)))
 }
 
 pub fn get_prefix() -> Result<Option<String>> {
@@ -319,5 +379,57 @@ pub fn get_last_worktree() -> Result<Option<String>> {
         }
     } else {
         Ok(None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn names_codex_detached_worktrees_by_session_id() {
+        let worktrees = parse_worktrees(
+            "worktree /Users/bruce/Development/ollama.com\n\
+             HEAD 1111111\n\
+             branch refs/heads/main\n\
+             \n\
+             worktree /Users/bruce/.codex/worktrees/3096/ollama.com\n\
+             HEAD 2222222\n\
+             detached\n",
+        );
+
+        assert_eq!(worktrees.len(), 2);
+        assert_eq!(worktrees[1].display_name(), "codex/3096");
+        assert!(worktrees[1].matches_name("codex/3096"));
+    }
+
+    #[test]
+    fn keeps_the_existing_label_for_other_detached_worktrees() {
+        let worktree = Worktree {
+            path: PathBuf::from("/tmp/repo"),
+            branch: "(detached)".to_string(),
+            is_main: false,
+            hint: None,
+        };
+
+        assert_eq!(worktree.display_name(), "(detached)");
+    }
+
+    #[test]
+    fn includes_a_hint_in_the_display_label_but_not_the_lookup_name() {
+        let mut worktree = Worktree {
+            path: PathBuf::from("/Users/bruce/.codex/worktrees/3096/ollama.com"),
+            branch: "(detached)".to_string(),
+            is_main: false,
+            hint: None,
+        };
+        worktree.set_hint("Update Mixpanel team user tracking".to_string());
+
+        assert_eq!(
+            worktree.display_label(),
+            "codex/3096\tUpdate Mixpanel team user tracking"
+        );
+        assert!(worktree.matches_name(&worktree.display_label()));
+        assert!(worktree.matches_name("codex/3096"));
     }
 }

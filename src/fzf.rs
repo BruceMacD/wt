@@ -35,7 +35,7 @@ pub fn run_fzf(worktrees: &[Worktree]) -> Result<FzfResult> {
     // Write worktree list to fzf stdin
     if let Some(mut stdin) = child.stdin.take() {
         for wt in worktrees {
-            let line = format!("{}\n", wt.branch);
+            let line = format!("{}\n", wt.display_label());
             let _ = stdin.write_all(line.as_bytes());
         }
     }

@@ -2,6 +2,8 @@
   
 An interactive Git worktree manager powered by [fzf](https://github.com/junegunn/fzf). Create, switch, and clean up worktrees without remembering any `git worktree` commands.
 
+> **Note:** This tool is optimized for and tested on macOS only.
+
 <div align="center">
     <img src="https://github.com/user-attachments/assets/7103daaf-8a9a-4c9e-b961-4f7f99d9636e" width="600" />
 </div>
@@ -61,7 +63,9 @@ cp target/release/worktree ~/.local/bin/
 ## How it works
 
 1. Run `wt` inside any Git repo
-2. An fzf picker shows your existing worktrees
+2. An fzf picker shows your existing worktrees, including detached worktrees created by Codex
+   - When available, Codex worktrees include the associated chat title from Codex's local metadata
+   - If that metadata can't be read, they fall back to a stable `codex/<id>` label
 3. Select one to switch, or type a new branch name and press Enter
 4. New worktrees are created at `~/.wt/<repo>/<branch>/`
 

@@ -1,3 +1,4 @@
+mod codex;
 mod error;
 mod fzf;
 mod git;
@@ -105,7 +106,7 @@ fn run_default() -> Result<(), WtError> {
             // Save current worktree as "last" before switching (skip main)
             if let Some(ref cur) = current {
                 if !cur.is_main {
-                    let _ = git::save_last_worktree(&cur.branch);
+                    let _ = git::save_last_worktree(&cur.display_name());
                 }
             }
             // Find and switch to selected worktree
@@ -117,7 +118,7 @@ fn run_default() -> Result<(), WtError> {
             // Save current worktree as "last" before switching (skip main)
             if let Some(ref cur) = current {
                 if !cur.is_main {
-                    let _ = git::save_last_worktree(&cur.branch);
+                    let _ = git::save_last_worktree(&cur.display_name());
                 }
             }
             // Create new worktree with this branch name
@@ -137,7 +138,7 @@ fn run_exit() -> Result<(), WtError> {
     // Save current worktree as "last" before going back to main
     if let Some(cur) = git::get_current_worktree()? {
         if !cur.is_main {
-            let _ = git::save_last_worktree(&cur.branch);
+            let _ = git::save_last_worktree(&cur.display_name());
         }
     }
     let main_worktree = git::get_main_worktree()?;
@@ -147,7 +148,7 @@ fn run_exit() -> Result<(), WtError> {
 
 fn run_list() -> Result<(), WtError> {
     for worktree in git::list_worktrees()? {
-        println!("{}\t{}", worktree.branch, worktree.path.display());
+        println!("{}\t{}", worktree.display_label(), worktree.path.display());
     }
     Ok(())
 }
@@ -161,7 +162,7 @@ fn run_remove(name: Option<String>) -> Result<(), WtError> {
 
     // Don't allow removing the worktree you're currently in
     if let Some(cur) = git::get_current_worktree()? {
-        if !cur.is_main && cur.branch == target {
+        if !cur.is_main && cur.matches_name(&target) {
             return Err(WtError::GitCommand(
                 "cannot remove the current worktree, run `wt exit` first".to_string(),
             ));
